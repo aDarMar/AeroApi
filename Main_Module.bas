@@ -8,7 +8,7 @@ Function add(a As Long) As Long
 End Function
 
 Sub ExportFilesToRepo()
-
+    'Taken from https://minerupset.com/2022/Git-and-Excel-VBA/
     ' Tool for exporting VBA-based components to an external folder (say for storing in a git repo)
     ' Make sure to go to the Toolbar Menu -> Tools -> References -> Select "Microsoft Visual Basic For Applications Extensibility 5.3"
     ' Without this, you will not be able to access the VBA Project of the workbook
@@ -47,7 +47,7 @@ Sub ExportFilesToRepo()
 End Sub
 
 Sub ImportFilesToRepo()
-
+    'Taken from https://minerupset.com/2022/Git-and-Excel-VBA/
     ' Tool for importing VBA files from a given folder destination
     ' Make sure to go to the Toolbar Menu -> Tools -> References -> Select "Microsoft Visual Basic For Applications Extensibility 5.3"
     ' Without this, you will not be able to access the VBA Project of the workbook
@@ -107,7 +107,7 @@ Private Sub UpdateNodalDataFast()
     Dim apts() As Variant
     'Definiamo gli Array con i valori dei nodi
     bpts = DefineNode(femap, 1, 2, "Beam")
-    mpts = DefineNode(femap, 2, 2, "Mass")
+    mpts = DefineNode(femap, 2, 2, "Mass", "no")
     'Ordiniamo gli array e calcoliamo la distanza dal nodo di riferimento
     bpts = CocktailSort(bpts, 3)
     'CAlcoliamo le proiezioni dei punti mpts sull'asse elastico

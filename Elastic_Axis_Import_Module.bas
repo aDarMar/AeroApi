@@ -18,17 +18,23 @@ Function FindNodNum(wst As Long, rst As Long) As Long
     Loop
 End Function
 
-Function DefineNode(femap As Object, wst As Long, rst As Long, Optional flg As String = "no") As Variant
+Function DefineNode(femap As Object, wst As Long, rst As Long, Optional flg As String = "no", Optional deflg = "yes") As Variant
 'Funzione che definisce i nodi in una scheda e fornsice in output una matrice contenente ID x y z
 'INPUT
 'femap: oggetto che punta alla sessione corrente di femap
 'wst: [worksheet] indica il foglio su cui cercare
 'rst: [row start] indica la riga da cui iniziare a contare
+'flg:           [Beam/Mass] flag that defines the type of input expected from the excel worksheet. If omitted the function will not save additional property data
+'deflg:         [yes/no] flag to decide if the function has to also define the nodes contained in the excel file
 'OUTPUT
 'out: matrice che contiene per ogni riga le seguenti informazioni del nodo :[ID riga x y z -1]
-    'Create a Node object.
-    Dim nd As Object
-    Set nd = femap.feNode
+    If deflg = "yes" Then
+        'Create a Node object.
+        Dim nd As Object
+        Dim rc As Long    '?
+        
+        Set nd = femap.feNode
+    End If
     'Dichiarazioni
     Dim npts As Long     'Numero di nodi definiti nella Worksheet
     Dim Row As Long      'Contatore per le righe
@@ -41,7 +47,6 @@ Function DefineNode(femap As Object, wst As Long, rst As Long, Optional flg As S
     Dim d As Long        'def CSys
     Dim oc As Long       'output CSys
     Dim e As Long        'Node Type Node = 0 non viene inizializzata quindi è posta automaticamente 0
-    Dim rc As Long       '?
     Dim ID As Long       'Entity ID
     Dim Pb As Variant    'Vincoli: Indica se il corrispettivo DoF è Libero o No quind Bool
     Dim p(6) As Long     'Vettore per inizializzare pb
@@ -90,8 +95,11 @@ Function DefineNode(femap As Object, wst As Long, rst As Long, Optional flg As S
                 out(Row - rst, 5 + j) = Worksheets(wst).Cells(Row, 14 + j).Value
             Next j
         End If
+        'Checks if the deflg = yes. In that case the program defines also the nodes in femap
+        If deflg = "yes" Then
         'Definiamo l'elemento Node e avanziamo con la riga
-        rc = nd.PutAll(ID, x, y, z, l, co, e, d, oc, Pb)    '6.     Put all data back into FEMAP with one call.
+            rc = nd.PutAll(ID, x, y, z, l, co, e, d, oc, Pb)    '6.     Put all data back into FEMAP with one call.
+        End If
         Row = Row + 1
         ID = Worksheets(wst).Cells(Row, 1).Value
     Loop
@@ -160,13 +168,15 @@ End Function
 
 Function ProjPts(femap As Object, vec1 As Variant, vec2 As Variant) As Variant
 'Funzione che proietta i punti di vec2 sull'asse individuato dal primo e ultimo punto di vec1
-'vec1,vec2 [ID,row,x,y,z,ds]
+'vec1,vec2 [ID,row,x,y,z,ds,dX,dY,dZ]
+
     Dim nd As Object
     Dim r As New CVector        'versore Ps-Pe ovvero versore dell'asse elastico
     Dim q As New CVector        'versore Ps-Q
     Dim n As CVector            'versore tale da essere perpendicolare all'asse elastico
     Dim Ps() As Double          'Punto iniziale Asse elastico
     Dim Pe() As Double          'Punto finale asse elastico
+    Dim Pi() As Double          'Points on the elastic axis
     Dim lnt As Double           'Position of Projected point measured from elastic axis
 ' Variables for Node Definition
     Dim l As Long               'layer ID
@@ -183,7 +193,7 @@ Function ProjPts(femap As Object, vec1 As Variant, vec2 As Variant) As Variant
     
     Set nd = femap.feNode
     ID = vec2(LBound(vec2, 1), 0) + 1000 'The starting ID is the ID of the elastic Axis + 1000
-    ReDim out(UBound(vec2, 1) - LBound(vec2, 1), 5)
+    ReDim out(UBound(vec2, 1) - LBound(vec2, 1), 8)
     ReDim Pe(0 To 2)
     ReDim Ps(0 To 2)
     Pb = p
@@ -202,16 +212,25 @@ Function ProjPts(femap As Object, vec1 As Variant, vec2 As Variant) As Variant
             Pe(j) = vec2(i, 2 + j)  'Point to project
         Next j
         q.VecInitByPts Ps, Pe, True
-        lnt = NormVec(r, q)
-        If lnt > 0 And Not (lnt > r.RetLen()) Then
-            Pe = r.PtAlAx(lnt)
-            rc = nd.PutAll(ID, Pe(0), Pe(1), Pe(2), l, co, e, d, oc, Pb)    '6.     Put all data back into FEMAP with one call.
+        Set n = r.NormTo2Vecs(r, q)     ' Vector normal to the elastic axis
+        Pi = r.StrLineItsct(r, n)   ' Calculates the point given by the projection of the local CG onto the elastic axis
+        'lnt = NormVec(r, q)         'Calculates the length of thje point from the beginning of the elastic axis
+        If Pi(3) > 0 And Not (Pi(3) > r.RetLen()) Then
+            'Pe = r.PtAlAx(lnt)
+            
+            rc = nd.PutAll(ID, Pi(0), Pi(1), Pi(2), l, co, e, d, oc, Pb)    '6.     Put all data back into FEMAP with one call.
             out(i, 0) = ID
             out(i, 1) = -1  ' There are no rows
-            out(i, 2) = Pe(0)
-            out(i, 3) = Pe(1)
-            out(i, 4) = Pe(2)
-            out(i, 5) = lnt
+        ' Components of the Projected Vector
+            out(i, 2) = Pi(0)
+            out(i, 3) = Pi(1)
+            out(i, 4) = Pi(2)
+            out(i, 5) = Pi(3)
+        ' Components of C-C' vector (from C' to C). The - sign is used to revert vector's verse. In this way XCG = X + dX
+            out(i, 6) = -n.ReturnVec()(0) * Pi(4)
+            out(i, 7) = -n.ReturnVec()(1) * Pi(4)
+            out(i, 8) = -n.ReturnVec()(2) * Pi(4)
+        
             ID = ID + 1
         End If
     Next i
@@ -224,7 +243,7 @@ Function OrderPoints(eax As Variant, pax As Variant) As Variant
 '   eax: {elastic axis] matrix of points of the elastic axis
 '   pax: [projected elastic axis] matrix of the mass points projected along the elastic axis
 
-    Dim tpts() As Variant       'Matrix containing data of all the points that lie on teh elastic axis [ID,Row(-1 if is not defined in the Sheet1),x,y,z,s,A,I1,i2,J]
+    Dim tpts() As Variant       'Matrix containing data of all the points that lie on teh elastic axis [ID,Row(-1 if is not defined in the Sheet1),x,y,z,s,A or X_CG_offset,I1 or Y_CG_offset,I2 or Z_CG_Offset,J or -1 (if the three previous entries are the offsets)]
     Dim tvec As New CVector     'Cvector object that defines the segment P0 - Pi
     Dim P0(2) As Double         'Elastic axis starting point (the one enarest the fuselage)
     Dim Pi(2) As Double         'Points on the elastic axis
@@ -250,30 +269,18 @@ Function OrderPoints(eax As Variant, pax As Variant) As Variant
     Next i
     'Copying data from matrix pax to new storage matrix tpts
     For i = 0 To UBound(pax, 1) - LBound(pax, 1)
-        For j = 0 To 5
-            tpts(i + ifin, j) = pax(i, j)
+        For j = 0 To 8
+            tpts(i + ifin, j) = pax(i, j)   ' Saving in the new matrix the data from the projected vector
         Next j
-        For j = 6 To 9
-            tpts(i + ifin, j) = -1
-        Next j
+        j = 9
+        'For j = 6 To 9
+        tpts(i + ifin, j) = -1              ' Setting the last ow as -1 to indicate that the previous e columns are  X,Y,Z offsets and not A I1 I2
+        'Next j
     Next i
     'Ordering the Vector with respect to the distances column
     tpts = CocktailSort(tpts, 5)
     OrderPoints = tpts
 End Function
-'Function vers(P1 As Variant, P2 As Variant) As Double
-'Attenzione: i vettori devono avere indici che vanno da 0 a 2 NOW IN CVECTOR CLASS
- '   Dim V(3) As Double
- '   Dim nrm As Double
- '   For i = 0 To 2
- '       V(i) = P2(i) - P1(i)
-  '  Next i
-    'nrm = norm(v)
-    'For i = 0 To 2
-        'v(i) = v(i) / nrm
-    'Next i
- '   vers = V
-'End Function
 
 Function NormVec(r As CVector, q As CVector) As Double
 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -301,36 +308,25 @@ Function NormVec(r As CVector, q As CVector) As Double
     Dim i As Long
     Dim j As Long
         
-    at = r.DotProd(r, q)
-    If at = 0 Then
-    'r and s are already perpendicular
-    Else
-    'finds the vector perpendicular to r and s
-        bt = r.DotProd(r, r)
-        bt = 1 / bt
-        at = -1 / at
-        Set n = r.VecSum(q.ScalProd(at), r) 'Assigns vector n components
-        n.ApplPointDef q.RetPtB()           'Assigns C as application point
-        sol = False
-        'Finds the projection on the elastic axis of the point. We find the intersection between the two straight lines defined by (r,A)  and (n,C)
-        i = 1
+    Set n = r.NormTo2Vecs(r, q)         'Defines the n vector
+    sol = False
+    'Finds the projection on the elastic axis of the point. We find the intersection between the two straight lines defined by (r,A)  and (n,C)
+    i = 1
+    Do
+        j = i + 1
         Do
-            j = i + 1
-            Do
-                dn = n.ReturnVec()(j) * r.ReturnVec()(i) - n.ReturnVec()(i) * r.ReturnVec()(j)
-                If Not (dn = 0) Then
-                    sol = True
-                    j = j - 1
-                End If
-                j = j + 1
-            Loop Until j > 2 Or sol
-            i = i + 1
-        Loop Until sol Or i > 2
-        i = i - 1
-        NormVec = (n.ReturnVec()(j) * (n.RetPtA()(i) - r.RetPtA()(i)) - n.ReturnVec()(i) * (n.RetPtA()(j) - r.RetPtA()(j))) / dn
+            dn = n.ReturnVec()(j) * r.ReturnVec()(i) - n.ReturnVec()(i) * r.ReturnVec()(j)  ' It is 0 only if n//r
+            If Not (dn = 0) Then
+                sol = True
+                j = j - 1
+            End If
+            j = j + 1
+        Loop Until j > 2 Or sol
+        i = i + 1
+    Loop Until sol Or i > 2
+    i = i - 1
+    NormVec = (n.ReturnVec()(j) * (n.RetPtA()(i) - r.RetPtA()(i)) - n.ReturnVec()(i) * (n.RetPtA()(j) - r.RetPtA()(j))) / dn
         
-    End If
-    
 End Function
 
 Function InterpMod(f1 As Variant, f2 As Variant, x1 As Variant, x2 As Variant, x0 As Variant) As Variant()
@@ -400,21 +396,6 @@ Function Interp(i1 As Long, i2 As Long, j() As Long, apts As Variant, Optional x
         Next k
     End If
     Interp = out
-'Else
-'Only one point to interpolate
-    'If fide = -1 Then
-    'It means that data to be interpolated is stored only on one row
-     '       Interp = InterpMod(apts(i1, fidi), apts(i2, fidi), apts(i1, xidx), apts(i2, xidx), j)
-   ' Else
-    'The function must interpolate more columns
-   '     Dim out As Variant
-   '     ReDim out(0 To fide - fidi)
-        
-  '      For i = fidi To fide
-   '         out(i) = InterpMod(apts(i1, fidi), apts(i2, fidi), apts(i1, xidx), apts(i2, xidx), j)
-   '     Next i
-    'End If
-'End If
     
 End Function
 
@@ -488,8 +469,6 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
     For i = 0 To 5
         mval(i) = 1
     Next i
-    'mval(0) = 1
-    'mval(3) = 1
     mval(49) = 0
     DMat.ID = 1                 ' MatID
     DMat.layer = 1
@@ -596,42 +575,26 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
         i = i + 1
     Loop
 ' ====== ELEMENT DEFINITION ======
-    Dim vWeight() As Variant
-    Dim vdof() As Variant
-    Dim vfaceArray() As Variant
-    Dim vNodeArray() As Variant
     Dim MassEl As Object
-    Dim RigEl As Object
+    'Dim vecP As New CVector             ' Vector used to declare offset between CG and its projection
     
-    ReDim vNodeArray(0)
-    ReDim vWeight(0)
-    ReDim vdof(0 To 5)
     Set MassEl = femap.feElem
-    Set RigEl = femap.feElem
     
-    vWeight(0) = 1                          'Weights used for interpolation
     'Assigning the DoFs for the single node
-    For i = 0 To 5:
-        vdof(i) = -1
-    Next i
+    'For i = 0 To 5:
+    '    vdof(i) = -1
+    'Next i
 'Loop for creating Mass and Rigid Elements
     For i = 0 To UBound(mpts, 1) - LBound(mpts, 1)
-    ' RIGID Element Definition
-        RigEl.Get (2000 + i)
-        RigEl.layer = 1
-        RigEl.Type = 29 'Rigid
-        RigEl.topology = 13 'Rigid
-        RigEl.Node(0) = mpts(i, 0) + 1000 ' apts(2 * i + 1, 0)      'Indipendent Node ID: projection of the mass node on the elastic axis
-        vNodeArray(0) = mpts(i, 0)              'Assigns the ID of the Node outsde the elastic axis
-        
-        rc = RigEl.PutNodeList(0, 1, vNodeArray, vfaceArray, vWeight, vdof) ' 0, nodeCount = 0, nodesID, facearray NULL, weight, dof
-        RigEl.Put (2000 + i)
     ' MASS Property Definition
         pr.Get (2000 + i)
         pr.Type = 27 'Mass
         mat = temp                      ' Reset mat to a all zeros array
-        For j = 1 To 7                  ' Assigns mass values read from excel
+        For j = 1 To 7                 ' Assigns mass values read from excel
             mat(j) = mpts(i, j + 5)
+        Next j
+        For j = 8 To 10
+            mat(j) = apts(2 * i + 1, j - 2)
         Next j
         pr.pmat = mat                   ' Assigns the correct mass data
         pr.Put (2000 + i)               ' Saves the Element
@@ -641,7 +604,7 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
         MassEl.Type = 27                  ' Mass
         MassEl.topology = 9               '9 is Point because the mass element is attached only to a point
         MassEl.propID = 2000 + i          ' Mass Element ID
-        MassEl.Node(0) = mpts(i, 0)       ' Node associated with mass ID
+        MassEl.Node(0) = apts(2 * i + 1, 0)   ' Node associated with mass ID
         MassEl.Put (3000 + i)
     Next i
 End Sub

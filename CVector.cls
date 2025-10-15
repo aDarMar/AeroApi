@@ -18,7 +18,7 @@ Private lnt As Double
 Private nel As Long
 '====== METHODS ======
 ' Kind of Constructor
-Public Sub VecInit(vals() As Double)
+Public Sub VecInit(vals() As Double, Optional IsVers As Boolean = False)
 'This subroutine assigns the values to the vector
 'INPUT
 'vals: array containing the coordinates
@@ -29,6 +29,9 @@ Public Sub VecInit(vals() As Double)
     Next i
     lnt = Norm(Me)
     nel = VecDims()
+    If IsVers Then
+            MakeVersor
+    End If
 End Sub
 
 Public Sub VecInitByPts(Pai() As Double, Pbi() As Double, IsVers As Boolean)
@@ -52,13 +55,7 @@ Public Sub VecInitByPts(Pai() As Double, Pbi() As Double, IsVers As Boolean)
         lnt = Norm(Me)
         nel = VecDims()
         If IsVers Then
-            For i = 0 To nel - 1
-                pVec(i) = pVec(i) / lnt
-            Next i
-            'lnt = Norm(Me)
-            'If Not (lnt = 1) Then
-                'Err.Raise 0, "VecInitByPts", "Norm of the Versor is not Unitary"
-            'End If
+            MakeVersor
         End If
     End If
 End Sub
@@ -74,6 +71,14 @@ Public Sub ApplPointDef(Pai() As Double)
             Pa(i) = Pai(LBound(Pai) + i)
         Next i
     End If
+End Sub
+
+Public Sub MakeVersor()
+'Transforms the object into a versor
+    Dim i As Long
+    For i = 0 To nel - 1
+        pVec(i) = pVec(i) / lnt
+    Next i
 End Sub
 
 Public Function VecDims() As Integer
@@ -181,6 +186,94 @@ Public Function CrossProd(a As CVector, b As CVector) As CVector
     vs(2) = va(0) * vb(1) - va(1) * vb(0)
     vecS.VecInit vs
     Set CrossProd = vecS 'When assigning an object from a function Set is required
+End Function
+
+Public Function NormTo2Vecs(r As CVector, q As CVector) As CVector
+'Function that returns a vector that is perpendicular to the first vector (r) and lies in the plane identified by the vectors r,q
+'x Function that returns the position along the elastic axis of the projection of a point C, defined as the head of vector q  x
+'x
+'x          x C
+'x         /| n
+'x        / v
+'x       /  |
+'x      /   |
+'x     /    |
+'x  q /     |
+'x   x-->---x--------------------x
+'x   A r    C'                   B
+'x   |--dn->|
+'x n must be perpendiular to r and it must lie in a plane that contains C and the elastic axis. The quations are:
+'x   (1) n dot r = 0
+'x   (2) n = at * q + bt * r
+'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    Dim n As CVector    'versor that points from point C outside the elastic axis to C', its projection on it
+    Dim bt As Double    'Linear combination coefficient for r
+    Dim at As Double    'Linear combination coefficient for qr
+    Dim i As Long
+    Dim j As Long
+        
+    at = r.DotProd(r, q)
+    If at = 0 Then
+    'r and s are already perpendicular
+        Set NormTo2Vecs = q
+    Else
+    'finds the vector perpendicular to r and s
+        bt = r.DotProd(r, r)
+        bt = 1 / bt
+        at = -1 / at
+        Set n = r.VecSum(q.ScalProd(at), r) 'Assigns vector n components
+        n.ApplPointDef q.RetPtB()           'Assigns C as application point
+        n.MakeVersor                        'Turns n into a versor
+        Set NormTo2Vecs = n
+    End If
+End Function
+
+Public Function StrLineItsct(r As CVector, n As CVector, Optional tol As Double = 0.00001) As Double()
+'Function that finds the intersection between two straight lines. The straight lines are defined by the directional versor and its point of application.
+' 3D ONLY
+
+    'Finds the projection on the elastic axis of the point. We find the intersection between the two straight lines defined by (r,A)  and (n,C)
+    ' Checks if n is a versor, otherwise it will give a wrong length -> TODO REMOVE THIS RESTICTION
+    If Abs(n.Norm(n) - 1) > 0.00001 Then
+        Err.Raise 501, "StrLineItsct", "n is not a versor"
+    End If
+    Dim sol As Boolean
+    Dim dn As Double
+    Dim i As Long
+    Dim j As Long
+    
+    sol = False
+    ' Checks if vectors are parallel
+    If r.Norm(r.CrossProd(r, n)) < tol Then
+        Err.Raise 601, "StrLineItsct", "Straight Lines are parallel"
+    End If
+    i = 1
+    Do
+        j = i + 1
+        Do
+            dn = n.ReturnVec()(j) * r.ReturnVec()(i) - n.ReturnVec()(i) * r.ReturnVec()(j)  ' It is 0 only if n//r
+            If Not (dn = 0) Then
+                sol = True
+                j = j - 1
+            End If
+            j = j + 1
+        Loop Until j > 2 Or sol
+        i = i + 1
+    Loop Until sol Or i > 2
+    ' If sol = False a solutions hasn't been found
+    If sol = False Then
+        Err.Raise 600, "StrLineItsct", "Intersection not found"
+    End If
+    i = i - 1   ' Reducing i by 1 to bring it back at the correct value before exiting the cycle
+    Dim lnt As Double
+    Dim Pint() As Double   ' Intersection Point + Length from r application point
+    
+    lnt = (n.ReturnVec()(j) * (n.RetPtA()(i) - r.RetPtA()(i)) - n.ReturnVec()(i) * (n.RetPtA()(j) - r.RetPtA()(j))) / dn
+    Pint = r.PtAlAx(lnt)
+    ReDim Preserve Pint(0 To 4)
+    Pint(3) = lnt               ' Distance of the intersection point from the application poin of vector r
+    Pint(4) = (lnt * n.ReturnVec()(j) * r.ReturnVec()(i) + n.ReturnVec()(j) * (r.RetPtA()(i) - n.RetPtA()(i))) / (n.ReturnVec()(i) * n.ReturnVec()(j)) ' Distance of the intersection point from the application poin of vector n
+    StrLineItsct = Pint
 End Function
 
 Public Function Norm(a As CVector) As Double
