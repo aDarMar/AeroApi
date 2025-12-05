@@ -51,7 +51,7 @@ Sub ImportFilesToRepo()
     ' Tool for importing VBA files from a given folder destination
     ' Make sure to go to the Toolbar Menu -> Tools -> References -> Select "Microsoft Visual Basic For Applications Extensibility 5.3"
     ' Without this, you will not be able to access the VBA Project of the workbook
-
+    ' This module works only if the Modules are already present in the session
     Dim pathName As String: pathName = "d:\Programmes\Git\AeroApi\"
 
     'Dir is a function that allows you to iterate through files in a directory

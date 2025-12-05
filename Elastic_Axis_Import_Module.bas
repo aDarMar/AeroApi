@@ -27,7 +27,7 @@ Function DefineNode(femap As Object, wst As Long, rst As Long, Optional flg As S
 'flg:           [Beam/Mass] flag that defines the type of input expected from the excel worksheet. If omitted the function will not save additional property data
 'deflg:         [yes/no] flag to decide if the function has to also define the nodes contained in the excel file
 'OUTPUT
-'out: matrice che contiene per ogni riga le seguenti informazioni del nodo :[ID riga x y z -1]
+'out: matrice che contiene per ogni riga le seguenti informazioni del nodo :[ID riga x y z -1 [Element Prop.] ]
     If deflg = "yes" Then
         'Create a Node object.
         Dim nd As Object
@@ -46,9 +46,9 @@ Function DefineNode(femap As Object, wst As Long, rst As Long, Optional flg As S
     Dim co As Long       'color definition
     Dim d As Long        'def CSys
     Dim oc As Long       'output CSys
-    Dim e As Long        'Node Type Node = 0 non viene inizializzata quindi è posta automaticamente 0
+    Dim e As Long        'Node Type Node = 0 non viene inizializzata quindi ï¿½ posta automaticamente 0
     Dim ID As Long       'Entity ID
-    Dim Pb As Variant    'Vincoli: Indica se il corrispettivo DoF è Libero o No quind Bool
+    Dim Pb As Variant    'Vincoli: Indica se il corrispettivo DoF ï¿½ Libero o No quind Bool
     Dim p(6) As Long     'Vettore per inizializzare pb
     Dim out() As Variant 'Vettore di Output
     'Inizializzazioni
@@ -61,7 +61,7 @@ Function DefineNode(femap As Object, wst As Long, rst As Long, Optional flg As S
             addR = 7    'Saves M Ixx Iyy Izz Ixy Iyz Ixz
         End If
     End If
-    ReDim out(0 To npts - 1, 0 To 5 + addR) 'in VSA non si può definire direttamente un array con un valore non costante. Inoltre posso decidere il range degli indici arbitrariamente
+    ReDim out(0 To npts - 1, 0 To 5 + addR) 'in VSA non si puï¿½ definire direttamente un array con un valore non costante. Inoltre posso decidere il range degli indici arbitrariamente
     Pb = p              '4.     Arrays are passed as variants. Dimension both, assign the array to the variant, and pass the variant.
     Row = rst
     'Legge i Dati per i Nodi
@@ -143,7 +143,7 @@ End Function
 Function swap(vect As Variant, i As Long, j As Long, dm As Integer) As Variant
     'Funzione che preso un vettore e due indici copia il contenuto di un indice nell'altro indice
     'INPUT
-    'vect: vettore o matrice da ordinare - può avere dimensione massima 2
+    'vect: vettore o matrice da ordinare - puï¿½ avere dimensione massima 2
     'i,j : indici delle posizioni da scambiare
     'dm  : dimensione - 1 swaps columns 2 swaps row
     Dim temp As Variant
@@ -163,12 +163,15 @@ Function swap(vect As Variant, i As Long, j As Long, dm As Integer) As Variant
             vect(j, n) = temp
         Next n
     End If
-    swap = vect 'vect dovrebbe essere passato per riferimento, ma VSA si aspetta sempre un valore da function sennò dovrei usare sub e avere l'accortezza di avviare il codice selezionando la Sub principale però
+    swap = vect 'vect dovrebbe essere passato per riferimento, ma VSA si aspetta sempre un valore da function sennï¿½ dovrei usare sub e avere l'accortezza di avviare il codice selezionando la Sub principale perï¿½
 End Function
 
 Function ProjPts(femap As Object, vec1 As Variant, vec2 As Variant) As Variant
 'Funzione che proietta i punti di vec2 sull'asse individuato dal primo e ultimo punto di vec1
-'vec1,vec2 [ID,row,x,y,z,ds,dX,dY,dZ]
+'   INPUT
+'       - vec1,vec2 [ID,row,x,y,z,ds,dX,dY,dZ]
+'   OUTPUT
+'       - out: [x,y,z,lnt,dX,dY,dZ] coordnates of the projected points and offset from the corresponding CG
 
     Dim nd As Object
     Dim r As New CVector        'versore Ps-Pe ovvero versore dell'asse elastico
@@ -183,10 +186,10 @@ Function ProjPts(femap As Object, vec1 As Variant, vec2 As Variant) As Variant
     Dim co As Long              'color definition
     Dim d As Long               'def CSys
     Dim oc As Long              'output CSys
-    Dim e As Long               'Node Type Node = 0 non viene inizializzata quindi è posta automaticamente 0
+    Dim e As Long               'Node Type Node = 0 non viene inizializzata quindi ï¿½ posta automaticamente 0
     Dim rc As Long              '?
     Dim ID As Long              'Entity ID
-    Dim Pb As Variant           'Vincoli: Indica se il corrispettivo DoF è Libero o No quind Bool
+    Dim Pb As Variant           'Vincoli: Indica se il corrispettivo DoF ï¿½ Libero o No quind Bool
     Dim p(6) As Long            'Vettore per inizializzare pb
     
     Dim out() As Variant
@@ -214,8 +217,8 @@ Function ProjPts(femap As Object, vec1 As Variant, vec2 As Variant) As Variant
         q.VecInitByPts Ps, Pe, True
         Set n = r.NormTo2Vecs(r, q)     ' Vector normal to the elastic axis
         Pi = r.StrLineItsct(r, n)   ' Calculates the point given by the projection of the local CG onto the elastic axis
-        'lnt = NormVec(r, q)         'Calculates the length of thje point from the beginning of the elastic axis
-        If Pi(3) > 0 And Not (Pi(3) > r.RetLen()) Then
+        'lnt = NormVec(r, q)         'Calculates the length of the point from the beginning of the elastic axis
+        If Pi(3) > 0 And Not (Pi(3) > r.RetLen()) Then  ' |C' - A| > 0 and < total length
             'Pe = r.PtAlAx(lnt)
             
             rc = nd.PutAll(ID, Pi(0), Pi(1), Pi(2), l, co, e, d, oc, Pb)    '6.     Put all data back into FEMAP with one call.
@@ -500,7 +503,7 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
 'Rigid
 'Mass
 '====== Properties Data ======
-'Variabile per aggiornate le proprietà
+'Variabile per aggiornate le proprietï¿½
     Dim flg As Variant          ' vflag
     Dim mat As Variant          ' pmat per BEAM
     Dim mat2 As Variant         ' pmat per MASS
@@ -543,18 +546,18 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
         out = Interp(i1, i2, lst, apts, 5, 6, 9)
         
     'End A Properties: taken from the previous element's end B
-        mat(0) = mat(20) 'Area
-        mat(1) = mat(21) 'I1
-        mat(2) = mat(22) 'I2
-        mat(4) = mat(24) 'J
+        mat(0) = mat(20)        ' Area
+        mat(1) = mat(21)        ' I1
+        mat(2) = mat(22)        ' I2
+        mat(4) = mat(24)        ' J
     'End B Properties
-        mat(20) = out(0, 0) 'Area
-        mat(21) = out(0, 1) 'I1
-        mat(22) = out(0, 2) 'I2
-        mat(24) = out(0, 3) 'J
+        mat(20) = out(0, 0)     ' Area
+        mat(21) = out(0, 1)     ' I1
+        mat(22) = out(0, 2)     ' I2
+        mat(24) = out(0, 3)     ' J
     'BEAM Property Definition
-        pr.Type = 5 'Beam
-        pr.matlID = 1 'MatID -> deve essere già definito
+        pr.Type = 5             ' Beam
+        pr.matlID = 1           ' MatID: dummy material, muste be already defined when assigned
         pr.pmat = mat
         pr.vflag = flg
         pr.Put (1000 + i)
@@ -566,7 +569,7 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
         beam.topology = 0 'Line2
         'nds(0) = olID CAPIRE COME FAR LEGGERE UNA VARIANT
         'nds(1) = ID
-        beam.Node(0) = apts(i, 0) 'Questa è una soluzione temporanea
+        beam.Node(0) = apts(i, 0) 'Questa ï¿½ una soluzione temporanea
         beam.Node(1) = apts(i + 1, 0)
         'beam.Nodes = nds    'Assegna gli IDs dei nodi che compongono l'elemento
         beam.orientID = 0   'interpreta vorient come componenti vettore che orienta l'asse della sezione
@@ -588,23 +591,23 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
     For i = 0 To UBound(mpts, 1) - LBound(mpts, 1)
     ' MASS Property Definition
         pr.Get (2000 + i)
-        pr.Type = 27 'Mass
-        mat = temp                      ' Reset mat to a all zeros array
-        For j = 1 To 7                 ' Assigns mass values read from excel
-            mat(j) = mpts(i, j + 5)
+        pr.Type = 27                        ' Mass
+        mat = temp                          ' Reset mat to all zeros array
+        For j = 1 To 7                      ' Assigns mass values read from excel
+            mat(j) = mpts(i, j + 5)         ' M Ixx Iyy Izz Ixy Iyz Ixz with respect to the CG
         Next j
         For j = 8 To 10
-            mat(j) = apts(2 * i + 1, j - 2)
+            mat(j) = apts(2 * i + 1, j - 2) ' X,Y,Z Offsets from grid point to CG
         Next j
-        pr.pmat = mat                   ' Assigns the correct mass data
-        pr.Put (2000 + i)               ' Saves the Element
-    ' MASS Element Definition
-        MassEl.Get (3000 + i)             ' Takes an untouched element
+        pr.pmat = mat                       ' Assigns the correct mass data
+        pr.Put (2000 + i)                   ' Saves the Element
+    ' MASS Element Definition: CONM2, coordinate ID is the default 0, so global retangular. This means that X,Y,Z are offsets
+        MassEl.Get (3000 + i)               ' Takes an untouched element
         MassEl.layer = 1
-        MassEl.Type = 27                  ' Mass
-        MassEl.topology = 9               '9 is Point because the mass element is attached only to a point
-        MassEl.propID = 2000 + i          ' Mass Element ID
-        MassEl.Node(0) = apts(2 * i + 1, 0)   ' Node associated with mass ID
+        MassEl.Type = 27                    ' Mass
+        MassEl.topology = 9                 ' 9 is Point because the mass element is attached only to a point
+        MassEl.propID = 2000 + i            ' Mass Element ID
+        MassEl.Node(0) = apts(2 * i + 1, 0) ' Node associated with mass ID
         MassEl.Put (3000 + i)
     Next i
 End Sub

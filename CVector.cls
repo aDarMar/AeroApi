@@ -231,7 +231,9 @@ End Function
 Public Function StrLineItsct(r As CVector, n As CVector, Optional tol As Double = 0.00001) As Double()
 'Function that finds the intersection between two straight lines. The straight lines are defined by the directional versor and its point of application.
 ' 3D ONLY
-
+' OUTPUT
+'   - Pint: [X,Y,Z,lnt,lnt2] point C' given as the intersection of the two straight lines (A,r) and (C,n). lnt = |C' - A| and lnt2 = |C' - C|
+ 
     'Finds the projection on the elastic axis of the point. We find the intersection between the two straight lines defined by (r,A)  and (n,C)
     ' Checks if n is a versor, otherwise it will give a wrong length -> TODO REMOVE THIS RESTICTION
     If Abs(n.Norm(n) - 1) > 0.00001 Then
