@@ -171,7 +171,7 @@ Function ProjPts(femap As Object, vec1 As Variant, vec2 As Variant) As Variant
 '   INPUT
 '       - vec1,vec2 [ID,row,x,y,z,ds,dX,dY,dZ]
 '   OUTPUT
-'       - out: [x,y,z,lnt,dX,dY,dZ] coordnates of the projected points and offset from the corresponding CG
+'       - out: [ID -1 x,y,z,lnt,dX,dY,dZ] coordnates of the projected points and offset from the corresponding CG
 
     Dim nd As Object
     Dim r As New CVector        'versore Ps-Pe ovvero versore dell'asse elastico
@@ -243,10 +243,13 @@ End Function
 Function OrderPoints(eax As Variant, pax As Variant) As Variant
 'Function that creates a matrix containing informations about all the points defined along the elastic axis ordered with increasing distance from the fuselage point
 'INPUT
-'   eax: {elastic axis] matrix of points of the elastic axis
-'   pax: [projected elastic axis] matrix of the mass points projected along the elastic axis
-
-    Dim tpts() As Variant       'Matrix containing data of all the points that lie on teh elastic axis [ID,Row(-1 if is not defined in the Sheet1),x,y,z,s,A or X_CG_offset,I1 or Y_CG_offset,I2 or Z_CG_Offset,J or -1 (if the three previous entries are the offsets)]
+'   eax: [ID riga x y z -1 [Element Prop.] ] matrix of points of the elastic axis
+'   pax: [ID -1 x,y,z,lnt,dX,dY,dZ] matrix of the mass points projected along the elastic axis.
+' OUTPUT
+'   tpts: [ ID <ExcelRow|-1> x y z |Pi - P0| <A|dX> <Imax|dY> <Imin|dZ> <J|-1>  ]
+'
+' xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    Dim tpts() As Variant       'Matrix containing data of all the points that lie on the elastic axis [ID,Row(-1 if is not defined in the Sheet1),x,y,z,s,A or X_CG_offset,I1 or Y_CG_offset,I2 or Z_CG_Offset,J or -1 (if the three previous entries are the offsets)]
     Dim tvec As New CVector     'Cvector object that defines the segment P0 - Pi
     Dim P0(2) As Double         'Elastic axis starting point (the one enarest the fuselage)
     Dim Pi(2) As Double         'Points on the elastic axis
@@ -254,15 +257,15 @@ Function OrderPoints(eax As Variant, pax As Variant) As Variant
     ReDim tpts(0 To UBound(eax, 1) - LBound(eax, 1) + UBound(pax, 1) - LBound(pax, 1) + 1, 0 To 9)
     'Initializzation
     For i = 0 To 2
-        P0(i) = eax(0, 2 + i)
+        P0(i) = eax(0, 2 + i)   ' El.ax. root node
     Next i
 
     For i = 0 To UBound(eax, 1) - LBound(eax, 1)
     'Copying data from matrix eax to new storage matrix tpts
         For j = 0 To 9
-            tpts(i, j) = eax(i, j)
+            tpts(i, j) = eax(i, j)      ' [ID ExcelRow x y z -1 A Imax,Imin, J ]
             If j > 1 And j < 5 Then
-                Pi(j - 2) = eax(i, j)
+                Pi(j - 2) = eax(i, j)   ' Copy coordinates of ith node
             End If
         Next j
     'Computing the distances of points Pi from P0
@@ -273,11 +276,12 @@ Function OrderPoints(eax As Variant, pax As Variant) As Variant
     'Copying data from matrix pax to new storage matrix tpts
     For i = 0 To UBound(pax, 1) - LBound(pax, 1)
         For j = 0 To 8
-            tpts(i + ifin, j) = pax(i, j)   ' Saving in the new matrix the data from the projected vector
+            tpts(i + ifin, j) = pax(i, j)   ' Saving in the new matrix the data from the projected vector [ID -1 x,y,z,lnt,dX,dY,dZ]
         Next j
+        ' Setting the last row as -1 to indicate that the previous e columns are  X,Y,Z offsets and not A I1 I2
         j = 9
         'For j = 6 To 9
-        tpts(i + ifin, j) = -1              ' Setting the last ow as -1 to indicate that the previous e columns are  X,Y,Z offsets and not A I1 I2
+        tpts(i + ifin, j) = -1              ' [ID -1 x,y,z,lnt,dX,dY,dZ,-1]
         'Next j
     Next i
     'Ordering the Vector with respect to the distances column
@@ -350,7 +354,7 @@ Function InterpMod(f1 As Variant, f2 As Variant, x1 As Variant, x2 As Variant, x
         m = (f2 - f1) / (x2 - x1)
         
         For i = 0 To UBound(x0) - LBound(x0)
-            out(i) = m * x0(LBound(x0) + i) + f2
+            out(i) = m * (x0(LBound(x0) + i) - x2) + f2
         Next i
         InterpMod = out
     Else
@@ -361,12 +365,12 @@ End Function
 Function Interp(i1 As Long, i2 As Long, j() As Long, apts As Variant, Optional xidx As Long = 0, Optional fidi As Long = 1, Optional fide As Long = -1) As Variant()
 'Function that performs linear interpolation on points of matrix apts identified by points j, based on sample points identified by i1,i2 of the same matrix
 'INPUT
-'   i1,i2: sample points used for interpolation
-'   j: points where the function is interpolated                                 xidx fidx
-'   apts: matrix containing x,f(x). The matrix must be ordered by columns       [x(0),f(0)]
-'   xidx: column where x-values are stored. Default choice is the first colum   [x(1),f(1)]
-'   fidi: starting colum where the f-values are stored.
-'   fide: ending column where the f-values are stored
+'   - i1,i2: sample points used for interpolation
+'   - j: points where the function is interpolated                                 xidx fidx
+'   - apts: matrix containing x,f(x). The matrix must be ordered by columns       [x(0),f(0)]
+'   - xidx: column where x-values are stored. Default choice is the first colum   [x(1),f(1)]
+'   - fidi: starting colum where the f-values are stored.
+'   - fide: ending column where the f-values are stored
 '
 '               o
 '   o           |
@@ -376,12 +380,12 @@ Function Interp(i1 As Long, i2 As Long, j() As Long, apts As Variant, Optional x
 '
 'If IsArray(j) Then
 'More than one point to interpolate
-    Dim k As Long
-    Dim out() As Variant
+    Dim k As Long           ' x index
+    Dim out() As Variant    ' interpolated values
     Dim inp() As Variant
     
     If fide = -1 Then
-    'It means that data to be interpolated is stored only on one row
+    'It means that data to be interpolated is stored only in one row
         ReDim inp(0 To UBound(j) - LBound(j))
         For k = 0 To UBound(j) - LBound(j)
             inp(k) = apts(k, xidx)
@@ -391,9 +395,9 @@ Function Interp(i1 As Long, i2 As Long, j() As Long, apts As Variant, Optional x
     'The function must interpolate more columns
     ReDim inp(0)
         ReDim out(0 To UBound(j) - LBound(j), 0 To fide - fidi)
-        For k = 0 To UBound(j) - LBound(j)
-        inp(0) = apts(k, xidx)
-            For i = 0 To fide - fidi
+        For k = 0 To UBound(j) - LBound(j)  ' Number of x0s
+        inp(0) = apts(j(LBound(j) + k), xidx)  ' x0 value
+            For i = 0 To fide - fidi        ' Number of functions to be interpolated at x0s
                 out(k, i) = InterpMod(apts(i1, fidi + i), apts(i2, fidi + i), apts(i1, xidx), apts(i2, xidx), inp)(0) 'TODO: make it better
             Next i
         Next k
@@ -448,6 +452,10 @@ Function ElAxAxes(P0() As Double, Pe() As Double, ax As String) As CVector
 End Function
 
 Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
+'   Input
+'       - apts: [ ID <ExcelRow|-1> x y z |Pi - P0| <A|dX> <Imax|dY> <Imin|dZ> <J|-1>  ]
+'       - mpts: [ ID ExcelRow x y z M Ixx Iyy Izz Ixy Iyz Ixz ] Mass Properties
+'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     Dim pr As Object            ' property object
     Dim i As Long               ' index
     Dim j As Long               ' index
@@ -467,17 +475,17 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
     Dim mval As Variant
     
     ReDim temp(0 To 171)
-    Set DMat = femap.feMatl
+    Set DMat = femap.feMatl     ' Define DMat as a Femap material
     mval = DMat.mmat
     For i = 0 To 5
-        mval(i) = 1
+        mval(i) = 1             '  Ei(1:3) Gi(1:3) = 1
     Next i
-    mval(49) = 0
+    mval(49) = 0                ' rho = 0
     DMat.ID = 1                 ' MatID
     DMat.layer = 1
     DMat.Type = 0               ' Isotropic
     DMat.mmat = mval
-    DMat.AutoComplete
+    DMat.AutoComplete           ' Auto fill all the other fields
     DMat.Put (1)
 '======= Element Data =======
 ' Beam
@@ -490,12 +498,11 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
     
     'orv = temp
     For j = 0 To 2
-        P0(j) = apts(0, 2 + j) ' Storing P0
-    Next j
-    For j = 0 To 2
+        P0(j) = apts(0, 2 + j) ' Storing P0: root node
         temp(j) = apts(UBound _
-        (apts, 1), 2 + j)       ' Storing Pe
+        (apts, 1), 2 + j)       ' Storing Pe: tip node
     Next j
+
     Set nrax = ElAxAxes(P0, temp, "x") ' Vector containing the x axis of the elastic axis reference frame TODOOOOO x or z?????
     orv = nrax.ReturnVec()
     Set beam = femap.feElem
@@ -504,7 +511,7 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
 'Mass
 '====== Properties Data ======
 'Variabile per aggiornate le propriet�
-    Dim flg As Variant          ' vflag
+    Dim vflg As Variant          ' vflag
     Dim mat As Variant          ' pmat per BEAM
     Dim mat2 As Variant         ' pmat per MASS
     'Dim temp() As Double        ' Dichiarato senza dimensione iniziale
@@ -512,9 +519,11 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
     ReDim temp(78)              ' Inizializzazione
     mat = temp                  ' Assegnazione all'array mat per l'elemento BEAM
     mat2 = temp                 ' Assegnazione all'array mat per l'elemento MASS
-    Dim temp2() As Long
-    ReDim temp2(4)              ' Ridimensionamento dell'array
-    flg = temp2                 ' Assegnazione a mat
+    Dim flg As Boolean          ' Interpolation flag
+    
+    'Dim temp2() As Long
+    'ReDim temp2(4)              ' Ridimensionamento dell'array
+    'flg = temp2                 ' Assegnazione a mat
     
     Set pr = femap.feProp
     ReDim out(0 To 3)
@@ -525,25 +534,32 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
     idx(3) = 24
 ' Assigning data for first node
     For j = 0 To 3
-        mat(idx(j)) = apts(0, 5 + j)
+        mat(idx(j)) = apts(0, 6 + j) ' A Imax Imin J
     Next j
 ' Element and Property definition cycle
     Do While i < UBound(apts, 1)
+        pr.Get (999 + i)        ' Get the Property 999+i
+        pr.Type = 5             ' Set property as Beam
+        mattemp = pr.pmat       ' Copy the material variable
+        vflg = pr.vflagI()      ' Get the vflag array
+        vflg(0) = 1             ' Sets the Tapered flag to true
+        pr.vflagI() = vflg      ' Put the modified vfalg array back
         i1 = i
         i2 = i + 1
+    ' Interpolate A I1 I2 J at the Projected Nodes: the following loop tries to find two nodes that have their propreties defined and interpolates
         Do
             flg = False
-            If apts(i1, 1) = -1 Then
-                i1 = i1 - 1
+            If apts(i1, 1) = -1 Then    ' Element i1 is a projected point
+                i1 = i1 - 1             ' Go back by 1 position
                 flg = True
             End If
-            If apts(i2, 1) = -1 Then
+            If apts(i2, 1) = -1 Then    ' Element i2 is a projected point
                 i2 = i2 + 1
                 flg = True
             End If
         Loop Until flg
         lst(0) = i + 1                  ' It is defined as an array because Interp can accept also more points to interpolate
-        out = Interp(i1, i2, lst, apts, 5, 6, 9)
+        out = Interp(i1, i2, lst, apts, 5, 6, 9) ' Interpolates column 5 as x0
         
     'End A Properties: taken from the previous element's end B
         mat(0) = mat(20)        ' Area
@@ -556,10 +572,10 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
         mat(22) = out(0, 2)     ' I2
         mat(24) = out(0, 3)     ' J
     'BEAM Property Definition
-        pr.Type = 5             ' Beam
+        'pr.Type = 5             ' Beam
         pr.matlID = 1           ' MatID: dummy material, muste be already defined when assigned
         pr.pmat = mat
-        pr.vflag = flg
+        'pr.vflag = flg
         pr.Put (1000 + i)
     ' BEAM Element Definition
         beam.Get (1000 + i)

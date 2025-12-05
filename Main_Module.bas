@@ -106,14 +106,14 @@ Private Sub UpdateNodalDataFast()
     Dim ppts() As Variant   'Array with informations about projected points
     Dim apts() As Variant
     'Definiamo gli Array con i valori dei nodi
-    bpts = DefineNode(femap, 1, 2, "Beam")
-    mpts = DefineNode(femap, 2, 2, "Mass", "no")
+    bpts = DefineNode(femap, 1, 2, "Beam")          ' Elastic Axis Nodes
+    mpts = DefineNode(femap, 2, 2, "Mass", "no")    ' CG Nodes
     'Ordiniamo gli array e calcoliamo la distanza dal nodo di riferimento
-    bpts = CocktailSort(bpts, 3)
+    bpts = CocktailSort(bpts, 3)                    ' Order Elastic Axis Nodes from Wing root to tip
     'CAlcoliamo le proiezioni dei punti mpts sull'asse elastico
-    ppts = ProjPts(femap, bpts, mpts)
+    ppts = ProjPts(femap, bpts, mpts)               ' CG nodes projection onto the elastic axis
     'Ordering the Points
-    apts = OrderPoints(bpts, ppts)
+    apts = OrderPoints(bpts, ppts)                  ' Order all nodes along the elastic axis
     'Defining the Elements
     DefineElems femap, apts, mpts
     
