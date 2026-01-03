@@ -304,3 +304,120 @@ Private Sub UpdateNodalDataFast()
 
 End Sub
 
+Public Sub testProp(ID As Integer, pr As Object)
+    pr.Get (ID)
+    Debug.Print "Property Type: "; pr.Type
+    mat = pr.pmat
+    For j = LBound(mat) To UBound(mat)
+        Debug.Print "Property pmat("; j; "): "; mat(j)
+    Next j
+End Sub
+
+Public Sub testElem(ID As Integer, MassEl As Object)
+    MassEl.Get (ID)
+    Debug.Print "Element Type: "; MassEl.Type
+    Debug.Print "Element Topology: "; MassEl.topology
+    Debug.Print "Element Property ID: "; MassEl.propID
+    Debug.Print "Element formulation"
+    For j = LBound(MassEl.vformulation) To UBound(MassEl.vformulation)
+        Debug.Print "-"; j; ": "; MassEl.vformulation()(j)
+    Next j
+    Debug.Print "Element Node Referenced"
+    For j = LBound(MassEl.vnode) To UBound(MassEl.vnode)
+        Debug.Print "-"; j; ": "; MassEl.vnode()(j)
+    Next j
+End Sub
+
+Private Sub Test()
+
+    Dim femap As Object
+    Set femap = GetObject(, "femap.model")
+    
+    Dim pr As Object
+    Dim MassEl As Object
+
+    Set pr = femap.feProp
+    Set MassEl = femap.feElem
+
+    Dim mat() As Double
+    Dim j As Integer
+    
+    testProp 2000, pr
+    Debug.Print "======================"
+    testElem 3001, MassEl
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    pr.Get (100)
+    Debug.Print "Property Type: "; pr.Type
+    mat = pr.pmat
+    For j = LBound(mat) To UBound(mat)
+        Debug.Print "Property pmat("; j; "): "; mat(j)
+    Next j
+    Debug.Print "== CONM1 MASS MATRIX PROPERTY ID 2 =="
+    pr.Get (2)
+    Debug.Print "Property Type: "; pr.Type
+    mat = pr.pmat
+    For j = LBound(mat) To UBound(mat)
+        Debug.Print "Property pmat("; j; "): "; mat(j)
+    Next j
+    
+    
+    MassEl.Get (2)               ' Takes an untouched element
+    Debug.Print "=== CONM2 MASS ELEMENT: ID 2 ==="
+    Debug.Print "Element Type: "; MassEl.Type
+    Debug.Print "Element Topology: "; MassEl.topology
+    Debug.Print "Element Property ID: "; MassEl.propID
+    Debug.Print "Element formulation"
+    For j = LBound(MassEl.vformulation) To UBound(MassEl.vformulation)
+        Debug.Print "-"; j; ": "; MassEl.vformulation()(j)
+    Next j
+    Debug.Print "Element Node Referenced"
+    For j = LBound(MassEl.vnode) To UBound(MassEl.vnode)
+        Debug.Print "-"; j; ": "; MassEl.vnode()(j)
+    Next j
+
+    MassEl.Get (3000)               ' Takes an untouched element
+    Debug.Print "=== CONM1 MASS ELEMENT: ID 2 ==="
+    Debug.Print "Element Type: "; MassEl.Type
+    Debug.Print "Element Topology: "; MassEl.topology
+    Debug.Print "Element Property ID: "; MassEl.propID
+    Debug.Print "Element formulation"
+    For j = LBound(MassEl.vformulation) To UBound(MassEl.vformulation)
+        Debug.Print "-"; j; ": "; MassEl.vformulation()(j)
+    Next j
+    Debug.Print "Element Node Referenced"
+    For j = LBound(MassEl.vnode) To UBound(MassEl.vnode)
+        Debug.Print "-"; j; ": "; MassEl.vnode()(j)
+    Next j
+    
+    
+    
+    'pr.Type = 27                        ' Mass
+    'pr.pmat = mat                       ' Assigns the correct mass data
+    'pr.Put (2000 + i)                   ' Saves the Element
+
+    ' MASS Element Definition: CONM2, coordinate ID is the default 0, so global retangular. This means that X,Y,Z are offsets
+    
+    'MassEl.layer = 1
+    'MassEl.Type = 27                    ' Mass
+    'MassEl.topology = 9                 ' 9 is Point because the mass element is attached only to a point
+    'MassEl.propID = 2000 + i            ' Mass Element ID
+    'MassEl.Node(0) = 6100  ' Node associated with mass ID
+    'MassEl.Put (3000 + i)
+    
+End Sub
+

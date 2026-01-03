@@ -615,6 +615,11 @@ Public Sub DefineElems(femap As Object, apts As Variant, mpts As Variant)
         For j = 8 To 10
             mat(j) = apts(2 * i + 1, j - 2) ' X,Y,Z Offsets from grid point to CG
         Next j
+        ' Assign to My and Mz the value of Mx because CONM2 has only one mass definition. If MY and MZ are not equal to MX, Femap uses a CONM1 element
+        ' BUT shows a mass with rigid link when running this macro.
+        mat(11) = mat(7)
+        mat(12) = mat(7)
+        
         pr.pmat = mat                       ' Assigns the correct mass data
         pr.Put (2000 + i)                   ' Saves the Element
     ' MASS Element Definition: CONM2, coordinate ID is the default 0, so global retangular. This means that X,Y,Z are offsets
